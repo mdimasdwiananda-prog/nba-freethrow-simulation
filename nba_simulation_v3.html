@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA Free Throw Simulation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap');
+  :root {
+    --nba-red:#C8102E;--nba-blue:#1D428A;--nba-white:#FFFFFF;
+    --dark:#090e1a;--dark2:#101825;--dark3:#182030;--card:#1a2540;
+    --text:#e8edf5;--muted:#7a8a9e;--border:rgba(29,66,138,0.25);
+    --accent:#4fc3f7;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Barlow',sans-serif;background:var(--dark);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+  /* HEADER */
+  .header{background:linear-gradient(135deg,#090e1a 0%,#0d1830 60%,#090e1a 100%);border-bottom:2px solid var(--nba-blue);padding:20px 36px;display:flex;align-items:center;gap:20px;position:relative;overflow:hidden;}
+  .header::after{content:'';position:absolute;top:-80px;right:-80px;width:240px;height:240px;background:radial-gradient(circle,rgba(29,66,138,0.12) 0%,transparent 70%);border-radius:50%;}
+  .nba-logo{flex-shrink:0;}
+  .header-text h1{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;letter-spacing:3px;color:#fff;line-height:1;}
+  .header-text h1 span{color:#C8102E;}
+  .header-text p{font-family:'Barlow Condensed',sans-serif;color:var(--muted);font-size:0.88rem;letter-spacing:1px;margin-top:4px;}
+  .badge{margin-left:auto;background:rgba(200,16,46,0.15);border:1px solid var(--nba-red);color:var(--nba-red);font-family:'Barlow Condensed',sans-serif;font-size:0.72rem;letter-spacing:1px;padding:5px 12px;border-radius:20px;text-transform:uppercase;flex-shrink:0;}
+
+  /* LAYOUT */
+  .main{display:flex;min-height:calc(100vh - 90px);}
+  .sidebar{width:290px;flex-shrink:0;background:var(--dark2);border-right:1px solid var(--border);padding:22px 18px;display:flex;flex-direction:column;gap:18px;}
+  .sidebar-section h3{font-family:'Barlow Condensed',sans-serif;font-size:0.68rem;letter-spacing:2px;color:var(--nba-blue);text-transform:uppercase;margin-bottom:12px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+  .param-row{margin-bottom:12px;}
+  .param-row label{display:flex;justify-content:space-between;font-size:0.8rem;color:var(--muted);margin-bottom:5px;}
+  .param-row label span{font-weight:700;color:#4fc3f7;font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;}
+  input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--dark3);border-radius:2px;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;background:var(--nba-blue);border-radius:50%;cursor:pointer;border:2px solid var(--accent);}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .toggle-row label{font-size:0.8rem;color:var(--muted);}
+  .toggle{width:36px;height:18px;background:var(--dark3);border-radius:9px;position:relative;cursor:pointer;transition:background 0.2s;border:1px solid var(--border);}
+  .toggle.on{background:var(--nba-blue);}
+  .toggle::after{content:'';position:absolute;width:12px;height:12px;background:white;border-radius:50%;top:2px;left:2px;transition:transform 0.2s;}
+  .toggle.on::after{transform:translateX(18px);}
+  .run-btn{width:100%;padding:13px;background:var(--nba-red);color:white;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:3px;cursor:pointer;transition:all 0.2s;margin-top:4px;}
+  .run-btn:hover{background:#e8192d;transform:translateY(-1px);}
+  .model-note{font-size:0.7rem;color:var(--muted);line-height:1.7;padding:4px 2px;}
+  .model-note strong{color:var(--nba-blue);}
+
+  /* CONTENT */
+  .content{flex:1;padding:26px 28px;overflow-y:auto;}
+
+  /* PLAYER SELECTOR */
+  .player-tabs{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap;}
+  .p-tab{padding:8px 18px;border-radius:20px;font-family:'Barlow Condensed',sans-serif;font-size:0.82rem;letter-spacing:1px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);transition:all 0.15s;text-transform:uppercase;}
+  .p-tab.active{background:var(--nba-blue);color:white;border-color:var(--nba-blue);}
+  .p-tab:hover:not(.active){border-color:var(--nba-blue);color:var(--accent);}
+
+  /* STATS STRIP */
+  .stats-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px;}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;position:relative;overflow:hidden;}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--nba-blue);}
+  .stat-card.red::before{background:var(--nba-red);}
+  .stat-card.cyan::before{background:var(--accent);}
+  .stat-val{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;color:#4fc3f7;line-height:1;}
+  .stat-card.red .stat-val{color:#ff6b6b;}
+  .stat-lbl{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;}
+
+  /* SECTION TITLE */
+  .sec-title{font-family:'Barlow Condensed',sans-serif;font-size:0.68rem;letter-spacing:2px;color:var(--nba-blue);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  /* COURT */
+  .court-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:22px;}
+  .court-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .court-header h3{font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:600;letter-spacing:1px;}
+  .sim-speed{display:flex;gap:6px;align-items:center;font-size:0.76rem;color:var(--muted);}
+  .speed-btn{background:var(--dark3);border:1px solid var(--border);color:var(--muted);padding:3px 9px;border-radius:4px;font-size:0.72rem;cursor:pointer;transition:all 0.15s;}
+  .speed-btn.active,.speed-btn:hover{background:var(--nba-blue);color:white;border-color:var(--nba-blue);}
+  canvas#courtCanvas{width:100%;border-radius:8px;display:block;}
+  .scoreboard{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:12px;text-align:center;}
+  .score-item{padding:7px;background:var(--dark3);border-radius:6px;}
+  .score-num{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#4fc3f7;}
+  .score-lbl{font-size:0.62rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  .ft-log{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px;min-height:28px;align-items:center;}
+  .ft-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;animation:popIn 0.2s ease;}
+  .ft-dot.make{background:rgba(29,66,138,0.35);border:1px solid var(--nba-blue);color:var(--accent);}
+  .ft-dot.miss{background:rgba(200,16,46,0.3);border:1px solid var(--nba-red);color:#ff6b6b;}
+  @keyframes popIn{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .btn-row{display:flex;gap:8px;margin-top:12px;}
+  .action-btn{flex:1;padding:9px;background:var(--dark3);border:1px solid var(--border);color:var(--muted);border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;letter-spacing:1px;cursor:pointer;transition:all 0.15s;}
+  .action-btn:hover{background:var(--nba-blue);color:white;border-color:var(--nba-blue);}
+
+  /* CHARTS */
+  .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+  .chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;}
+  .chart-card h4{font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;}
+  canvas.chart{width:100%;height:175px;}
+
+  /* PLAYER COMPARE */
+  .compare-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:22px;}
+  .compare-card h4{font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;}
+  .compare-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .compare-col{background:var(--dark3);border-radius:8px;padding:14px 10px;text-align:center;border:1px solid var(--border);}
+  .compare-col.highlight{border-color:var(--nba-blue);background:rgba(29,66,138,0.1);}
+  .compare-name{font-family:'Barlow Condensed',sans-serif;font-size:0.78rem;color:var(--accent);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;}
+  .compare-stat{margin-bottom:6px;}
+  .compare-val{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--text);}
+  .compare-lbl{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+
+  /* INSIGHTS */
+  .insights-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:22px;}
+  .insight-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;border-left:3px solid var(--nba-blue);}
+  .insight-card.red{border-left-color:var(--nba-red);}
+  .insight-card.cyan{border-left-color:var(--accent);}
+  .insight-card h5{font-family:'Barlow Condensed',sans-serif;font-size:0.67rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+  .insight-val{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:#4fc3f7;line-height:1;}
+  .insight-card.red .insight-val{color:#ff6b6b;}
+  .insight-card.cyan .insight-val{color:var(--accent);}
+  .insight-desc{font-size:0.76rem;color:var(--muted);margin-top:5px;line-height:1.4;}
+
+  /* FOOTER */
+  .footer{text-align:center;padding:18px;font-size:0.72rem;color:var(--muted);border-top:1px solid var(--border);line-height:1.8;}
+
+  /* LOADING */
+  #loadingOverlay{display:none;position:fixed;inset:0;background:rgba(9,14,26,0.88);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+  #loadingOverlay.show{display:flex;}
+  .loading-ball{width:38px;height:38px;animation:bounce 0.5s ease infinite alternate;}
+  @keyframes bounce{from{transform:translateY(0) rotate(0deg);}to{transform:translateY(-28px) rotate(180deg);}}
+  .loading-text{font-family:'Barlow Condensed',sans-serif;font-size:1rem;letter-spacing:2px;color:#4fc3f7;}
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <svg class="loading-ball" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="18" fill="#C8102E" stroke="#333" stroke-width="1"/>
+    <line x1="2" y1="20" x2="38" y2="20" stroke="#111" stroke-width="1.5"/>
+    <path d="M20 2 Q28 12 28 20 Q28 28 20 38" stroke="#111" stroke-width="1.5" fill="none"/>
+    <path d="M20 2 Q12 12 12 20 Q12 28 20 38" stroke="#111" stroke-width="1.5" fill="none"/>
+  </svg>
+  <div class="loading-text">RUNNING MONTE CARLO...</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <svg class="nba-logo" width="64" height="64" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="32" rx="30" ry="30" fill="#1D428A" stroke="#C8102E" stroke-width="2"/>
+    <ellipse cx="32" cy="32" rx="22" ry="22" fill="#0a1628"/>
+    <!-- Silhouette player -->
+    <ellipse cx="32" cy="20" rx="5" ry="5" fill="#C8102E"/>
+    <path d="M26 26 Q32 22 38 26 L40 42 Q36 44 32 43 Q28 44 24 42 Z" fill="#C8102E"/>
+    <line x1="24" y1="42" x2="20" y2="54" stroke="#C8102E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="40" y1="42" x2="44" y2="54" stroke="#C8102E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="26" y1="30" x2="18" y2="36" stroke="#C8102E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="38" y1="30" x2="46" y2="36" stroke="#C8102E" stroke-width="3" stroke-linecap="round"/>
+    <text x="32" y="62" text-anchor="middle" font-family="Bebas Neue,sans-serif" font-size="9" fill="white" letter-spacing="1">NBA</text>
+  </svg>
+  <div class="header-text">
+    <h1>NBA <span>FREE THROW</span> SIMULATION</h1>
+    <p>PENGARUH FREE THROW TERHADAP PERTANDINGAN NBA · POISSON + BINOMIAL + MONTE CARLO</p>
+  </div>
+  <div class="badge">UGM TPS 2025/2026</div>
+</div>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <h3>Parameter Pemain/Tim</h3>
+      <div class="param-row">
+        <label>FTA/Game (λ) <span id="lblLambda">21.7</span></label>
+        <input type="range" id="slLambda" min="4" max="35" step="0.1" value="21.7">
+      </div>
+      <div class="param-row">
+        <label>FT Make % (p) <span id="lblFTP">78%</span></label>
+        <input type="range" id="slFTP" min="50" max="100" step="1" value="78">
+      </div>
+      <div class="param-row">
+        <label>Games <span id="lblGames">82</span></label>
+        <input type="range" id="slGames" min="10" max="82" step="1" value="82">
+      </div>
+      <div class="param-row">
+        <label>Monte Carlo Runs <span id="lblRuns">1000</span></label>
+        <input type="range" id="slRuns" min="100" max="5000" step="100" value="1000">
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <h3>Quick Presets</h3>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <button class="action-btn" onclick="setPreset('avg')">🏀 NBA Average</button>
+        <button class="action-btn" onclick="setPreset('elite')">⭐ Elite Scorer</button>
+        <button class="action-btn" onclick="setPreset('guard')">🔵 Avg Guard</button>
+        <button class="action-btn" onclick="setPreset('big')">🔴 Avg Big Man</button>
+        <button class="action-btn" onclick="setPreset('bad')">❌ Poor FT Shooter</button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <h3>Scenario Modifiers</h3>
+      <div class="toggle-row"><label>Clutch / Late Game Pressure</label><div class="toggle" id="togClutch" onclick="this.classList.toggle('on')"></div></div>
+      <div class="toggle-row"><label>Back-to-Back Fatigue</label><div class="toggle" id="togFatigue" onclick="this.classList.toggle('on')"></div></div>
+      <div class="param-row" style="margin-top:8px">
+        <label>Opp. Foul Discipline <span id="lblOpp">1.00×</span></label>
+        <input type="range" id="slOpp" min="0.5" max="1.5" step="0.05" value="1.0">
+      </div>
+    </div>
+    <button class="run-btn" onclick="runFullSim()">▶ RUN SIMULATION</button>
+    <div class="model-note">
+      <strong>MODEL:</strong><br>
+      FTA/game ~ Poisson(λ)<br>
+      FTM/game ~ Binomial(n, p)<br><br>
+      <strong>DATA 2024-25:</strong><br>
+      Liga avg FTA: 21.7/game<br>
+      Liga avg FT%: 78.0%<br>
+      Liga avg FTM: 16.9/game<br>
+      Sumber: Basketball-Reference
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- PLAYER TABS -->
+    <div class="sec-title">Pilih Profil Pemain</div>
+    <div class="player-tabs">
+      <div class="p-tab active" onclick="selectProfile(this,'avg',21.7,78)">🏀 NBA Average</div>
+      <div class="p-tab" onclick="selectProfile(this,'guard',14.0,85)">Guard (avg)</div>
+      <div class="p-tab" onclick="selectProfile(this,'wing',10.5,80)">Small Forward</div>
+      <div class="p-tab" onclick="selectProfile(this,'big',13.0,65)">Big Man (avg)</div>
+      <div class="p-tab" onclick="selectProfile(this,'elite',18.0,90)">Elite Scorer</div>
+      <div class="p-tab" onclick="selectProfile(this,'poor',8.0,55)">Poor FT Shooter</div>
+    </div>
+
+    <!-- STATS STRIP -->
+    <div class="sec-title">Simulation Results</div>
+    <div class="stats-strip">
+      <div class="stat-card"><div class="stat-val" id="statFTA">21.7</div><div class="stat-lbl">Avg FTA/Game</div></div>
+      <div class="stat-card red"><div class="stat-val" id="statFTM">16.9</div><div class="stat-lbl">Avg FTM/Game</div></div>
+      <div class="stat-card"><div class="stat-val" id="statSeason">1388</div><div class="stat-lbl">FT Pts/Season</div></div>
+      <div class="stat-card cyan"><div class="stat-val" id="statPct">78%</div><div class="stat-lbl">Simulated FT%</div></div>
+      <div class="stat-card red"><div class="stat-val" id="statMax">33</div><div class="stat-lbl">Max FTA/Game</div></div>
+    </div>
+
+    <!-- COURT ANIMATION -->
+    <div class="sec-title">Live Free Throw Animation</div>
+    <div class="court-section">
+      <div class="court-header">
+        <h3>Simulasi live — satu game setiap klik</h3>
+        <div class="sim-speed">
+          Speed:
+          <button class="speed-btn active" onclick="setSpeed(1,this)">1×</button>
+          <button class="speed-btn" onclick="setSpeed(2,this)">2×</button>
+          <button class="speed-btn" onclick="setSpeed(4,this)">4×</button>
+          <button class="speed-btn" onclick="setSpeed(0.5,this)">0.5×</button>
+        </div>
+      </div>
+      <canvas id="courtCanvas" height="260"></canvas>
+      <div class="scoreboard">
+        <div class="score-item"><div class="score-num" id="sAttempts">0</div><div class="score-lbl">Attempts</div></div>
+        <div class="score-item"><div class="score-num" id="sMakes">0</div><div class="score-lbl">Makes</div></div>
+        <div class="score-item"><div class="score-num" id="sMisses">0</div><div class="score-lbl">Misses</div></div>
+        <div class="score-item"><div class="score-num" id="sPct">—</div><div class="score-lbl">FT%</div></div>
+      </div>
+      <div class="ft-log" id="ftLog"></div>
+      <div class="btn-row">
+        <button class="action-btn" onclick="simOneGame()">▶ Simulate 1 Game</button>
+        <button class="action-btn" onclick="simFiveGames()">▶▶ Simulate 5 Games</button>
+        <button class="action-btn" onclick="resetCourt()">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="sec-title">Monte Carlo Distribution Charts</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h4>Poisson PMF — P(FTA = k) per Game</h4>
+        <canvas id="chartPoisson" height="175"></canvas>
+      </div>
+      <div class="chart-card">
+        <h4>Distribusi FT% (1000 simulasi)</h4>
+        <canvas id="chartFTP" height="175"></canvas>
+      </div>
+      <div class="chart-card">
+        <h4>Total FT Points per Season Distribution</h4>
+        <canvas id="chartSeason" height="175"></canvas>
+      </div>
+      <div class="chart-card">
+        <h4>Sensitivity: FT Pts vs FTA Rate</h4>
+        <canvas id="chartSens" height="175"></canvas>
+      </div>
+    </div>
+
+    <!-- PLAYER COMPARISON -->
+    <div class="sec-title">Perbandingan Profil Pemain NBA</div>
+    <div class="compare-card">
+      <h4>Estimasi FT Points per Season — Berbagai Tipe Pemain</h4>
+      <div class="compare-grid">
+        <div class="compare-col">
+          <div class="compare-name">Guard (avg)</div>
+          <div class="compare-stat"><div class="compare-val">14.0</div><div class="compare-lbl">FTA/Game</div></div>
+          <div class="compare-stat"><div class="compare-val">85%</div><div class="compare-lbl">FT%</div></div>
+          <div class="compare-stat"><div class="compare-val" style="color:#4fc3f7">975</div><div class="compare-lbl">FT Pts/Season</div></div>
+        </div>
+        <div class="compare-col highlight">
+          <div class="compare-name">NBA Average</div>
+          <div class="compare-stat"><div class="compare-val">21.7</div><div class="compare-lbl">FTA/Game</div></div>
+          <div class="compare-stat"><div class="compare-val">78%</div><div class="compare-lbl">FT%</div></div>
+          <div class="compare-stat"><div class="compare-val" style="color:#4fc3f7">1388</div><div class="compare-lbl">FT Pts/Season</div></div>
+        </div>
+        <div class="compare-col">
+          <div class="compare-name">Big Man (avg)</div>
+          <div class="compare-stat"><div class="compare-val">13.0</div><div class="compare-lbl">FTA/Game</div></div>
+          <div class="compare-stat"><div class="compare-val">65%</div><div class="compare-lbl">FT%</div></div>
+          <div class="compare-stat"><div class="compare-val" style="color:#ff6b6b">694</div><div class="compare-lbl">FT Pts/Season</div></div>
+        </div>
+        <div class="compare-col">
+          <div class="compare-name">Elite Scorer</div>
+          <div class="compare-stat"><div class="compare-val">18.0</div><div class="compare-lbl">FTA/Game</div></div>
+          <div class="compare-stat"><div class="compare-val">90%</div><div class="compare-lbl">FT%</div></div>
+          <div class="compare-stat"><div class="compare-val" style="color:#ffd700">1328</div><div class="compare-lbl">FT Pts/Season</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSIGHTS -->
+    <div class="sec-title">Key Insights</div>
+    <div class="insights-grid">
+      <div class="insight-card">
+        <h5>P(FTA ≥ 25) per game</h5>
+        <div class="insight-val" id="insP25">—</div>
+        <div class="insight-desc">Probabilitas tim mendapat 25+ FTA dalam satu pertandingan</div>
+      </div>
+      <div class="insight-card red">
+        <h5>P(FTA ≤ 15) per game</h5>
+        <div class="insight-val" id="insP15">—</div>
+        <div class="insight-desc">Probabilitas mendapat sedikit kesempatan FT — pertandingan perimeter</div>
+      </div>
+      <div class="insight-card cyan">
+        <h5>95% CI FT Pts/Season</h5>
+        <div class="insight-val" id="insCI">—</div>
+        <div class="insight-desc">Rentang hasil yang mungkin dari 1.000 simulasi musim penuh</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <strong>Model:</strong> Distribusi Poisson (FTA/game) + Distribusi Binomial (FTM/game) + Monte Carlo Simulation<br>
+      Data: NBA League Averages 2024-25 · Basketball-Reference.com<br>
+      <em>Teknik Pemodelan dan Simulasi — Universitas Gadjah Mada 2025/2026</em>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ── SLIDERS ──
+const sliders=[['slLambda','lblLambda',v=>parseFloat(v).toFixed(1)],['slFTP','lblFTP',v=>v+'%'],['slGames','lblGames',v=>v],['slRuns','lblRuns',v=>parseInt(v).toLocaleString()],['slOpp','lblOpp',v=>parseFloat(v).toFixed(2)+'×']];
+sliders.forEach(([id,lbl,fmt])=>document.getElementById(id).addEventListener('input',e=>document.getElementById(lbl).textContent=fmt(e.target.value)));
+
+// ── PRESETS ──
+const presets={
+  avg:{lambda:21.7,ftp:78},
+  elite:{lambda:18.0,ftp:90},
+  guard:{lambda:14.0,ftp:85},
+  big:{lambda:13.0,ftp:65},
+  bad:{lambda:8.0,ftp:55}
+};
+function setPreset(name){
+  const p=presets[name];
+  document.getElementById('slLambda').value=p.lambda;
+  document.getElementById('lblLambda').textContent=p.lambda.toFixed(1);
+  document.getElementById('slFTP').value=p.ftp;
+  document.getElementById('lblFTP').textContent=p.ftp+'%';
+}
+function selectProfile(el,name,lambda,ftp){
+  document.querySelectorAll('.p-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('slLambda').value=lambda;
+  document.getElementById('lblLambda').textContent=lambda.toFixed(1);
+  document.getElementById('slFTP').value=ftp;
+  document.getElementById('lblFTP').textContent=ftp+'%';
+}
+
+// ── MATH ──
+function poissonPMF(l,k){let lp=k*Math.log(l)-l;for(let i=1;i<=k;i++)lp-=Math.log(i);return Math.exp(lp);}
+function poissonCDF(l,k){let s=0;for(let i=0;i<=k;i++)s+=poissonPMF(l,i);return Math.min(s,1);}
+function rPoisson(l){let L=Math.exp(-l),k=0,p=1;do{k++;p*=Math.random();}while(p>L);return k-1;}
+function rBinom(n,p){let s=0;for(let i=0;i<n;i++)if(Math.random()<p)s++;return s;}
+function mean(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+function quantile(a,q){const s=[...a].sort((x,y)=>x-y);return s[Math.floor(q*s.length)];}
+function histBins(arr,bins){
+  const mn=Math.min(...arr),mx=Math.max(...arr),w=(mx-mn)/bins;
+  const counts=Array(bins).fill(0),labels=[];
+  for(let i=0;i<bins;i++)labels.push((mn+i*w).toFixed(0));
+  arr.forEach(v=>{let b=Math.min(Math.floor((v-mn)/w),bins-1);counts[b]++;});
+  return{labels,counts};
+}
+
+// ── CHARTS ──
+Chart.defaults.color='#7a8a9e';Chart.defaults.borderColor='rgba(29,66,138,0.15)';Chart.defaults.font.family="'Barlow',sans-serif";
+let charts={};
+function mkChart(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id).getContext('2d'),cfg);}
+
+// ── COURT CANVAS ──
+const cvs=document.getElementById('courtCanvas');
+const cx=cvs.getContext('2d');
+let simSpeed=1,balls=[],shotQueue=[],shotTimer=null,attempts=0,makes=0,misses=0;
+
+function setSpeed(s,btn){simSpeed=s;document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+
+function drawCourt(){
+  const W=cvs.width,H=cvs.height;
+  cx.clearRect(0,0,W,H);
+
+  // ── FLOOR: hardwood parquet ──
+  const floorColor='#C68642';
+  cx.fillStyle=floorColor;
+  cx.fillRect(0,0,W,H);
+  // parquet grain lines horizontal
+  cx.strokeStyle='rgba(0,0,0,0.08)';cx.lineWidth=0.5;
+  for(let y=0;y<H;y+=12){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+  // parquet plank dividers vertical
+  cx.strokeStyle='rgba(0,0,0,0.06)';cx.lineWidth=0.3;
+  const plankW=28;
+  for(let x=0;x<W;x+=plankW){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+  // darker outer border of court
+  cx.strokeStyle='rgba(0,0,0,0.25)';cx.lineWidth=2;
+  cx.strokeRect(4,4,W-8,H-8);
+
+  // ── PAINT (key) ──
+  const lx=W/2-70,lw=140,ly=20;
+  cx.fillStyle='rgba(180,50,30,0.22)';
+  cx.fillRect(lx,ly,lw,H-60);
+  cx.strokeStyle='rgba(255,255,255,0.9)';cx.lineWidth=2;
+  cx.strokeRect(lx,ly,lw,H-60);
+
+  // ── FREE THROW CIRCLE (top arc) ──
+  cx.strokeStyle='rgba(255,255,255,0.85)';cx.lineWidth=2;
+  cx.beginPath();cx.arc(W/2,H-60,70,Math.PI,0,false);cx.stroke();
+  // dotted bottom arc
+  cx.setLineDash([6,5]);
+  cx.beginPath();cx.arc(W/2,H-60,70,0,Math.PI,false);cx.stroke();
+  cx.setLineDash([]);
+
+  // ── FREE THROW LINE ──
+  cx.strokeStyle='rgba(255,255,255,0.95)';cx.lineWidth=2.5;
+  cx.beginPath();cx.moveTo(lx,H-60);cx.lineTo(lx+lw,H-60);cx.stroke();
+
+  // ── LANE HASH MARKS ──
+  cx.strokeStyle='rgba(255,255,255,0.7)';cx.lineWidth=1.5;
+  const hashes=[0.25,0.5,0.75];
+  hashes.forEach(t=>{
+    const hy=ly+(H-60-ly)*t;
+    cx.beginPath();cx.moveTo(lx-10,hy);cx.lineTo(lx+6,hy);cx.stroke();
+    cx.beginPath();cx.moveTo(lx+lw-6,hy);cx.lineTo(lx+lw+10,hy);cx.stroke();
+  });
+
+  // ── BACKBOARD ──
+  cx.strokeStyle='rgba(255,255,255,0.9)';cx.lineWidth=3;
+  cx.strokeRect(W/2-42,ly-5,84,6);
+  // glass shine
+  cx.fillStyle='rgba(180,220,255,0.25)';
+  cx.fillRect(W/2-42,ly-5,84,6);
+
+  // ── SUPPORT POLE ──
+  cx.strokeStyle='rgba(180,180,180,0.5)';cx.lineWidth=2;
+  cx.beginPath();cx.moveTo(W/2,ly+1);cx.lineTo(W/2,ly-14);cx.stroke();
+
+  // ── RIM (orange, 3D effect) ──
+  // shadow
+  cx.strokeStyle='rgba(0,0,0,0.3)';cx.lineWidth=5;
+  cx.beginPath();cx.arc(W/2,ly+10+2,26,0,Math.PI*2);cx.stroke();
+  // rim body
+  cx.strokeStyle='#E87722';cx.lineWidth=4;
+  cx.beginPath();cx.arc(W/2,ly+10,26,0,Math.PI*2);cx.stroke();
+  // inner rim highlight
+  cx.strokeStyle='rgba(255,160,60,0.6)';cx.lineWidth=1.5;
+  cx.beginPath();cx.arc(W/2-3,ly+8,23,Math.PI*1.1,Math.PI*1.9,false);cx.stroke();
+
+  // ── NET ──
+  const rimY=ly+10,rimR=26;
+  const netTop=rimY+rimR*0.8;
+  const netBot=rimY+rimR+32;
+  const netW=rimR*1.4;
+  // net outline
+  cx.strokeStyle='rgba(240,240,240,0.85)';cx.lineWidth=1.2;
+  cx.beginPath();
+  cx.moveTo(W/2-netW*0.7,netTop);
+  cx.bezierCurveTo(W/2-netW*0.6,netBot+4,W/2+netW*0.6,netBot+4,W/2+netW*0.7,netTop);
+  cx.stroke();
+  // vertical net lines
+  const netCols=8;
+  for(let i=0;i<=netCols;i++){
+    const t=i/netCols;
+    const nx=W/2-netW*0.7+t*(netW*1.4);
+    const topY=netTop;
+    const botX=W/2-netW*0.35+t*(netW*0.7);
+    cx.strokeStyle='rgba(240,240,240,0.55)';cx.lineWidth=0.8;
+    cx.beginPath();cx.moveTo(nx,topY);
+    cx.quadraticCurveTo((nx+botX)/2,netTop+(netBot-netTop)*0.5,botX,netBot);
+    cx.stroke();
+  }
+  // horizontal net lines
+  for(let j=1;j<=4;j++){
+    const nt=j/5;
+    const ny=netTop+(netBot-netTop)*nt;
+    const halfW=netW*0.7*(1-nt*0.45);
+    cx.strokeStyle='rgba(240,240,240,0.4)';cx.lineWidth=0.7;
+    cx.beginPath();cx.moveTo(W/2-halfW,ny);cx.lineTo(W/2+halfW,ny);cx.stroke();
+  }
+
+  // ── PLAYER SILHOUETTE (NBA logo style) ──
+  const px=W/2,py=H-64;
+  cx.save();cx.shadowColor='rgba(0,0,0,0.4)';cx.shadowBlur=8;cx.shadowOffsetX=3;cx.shadowOffsetY=3;
+  cx.fillStyle='#C8102E';
+  // legs
+  cx.beginPath();cx.moveTo(px-2,py);cx.lineTo(px-14,py+32);cx.lineTo(px-8,py+32);cx.lineTo(px+2,py+4);cx.closePath();cx.fill();
+  cx.beginPath();cx.moveTo(px+2,py);cx.lineTo(px+14,py+32);cx.lineTo(px+8,py+32);cx.lineTo(px-2,py+4);cx.closePath();cx.fill();
+  // shoes
+  cx.fillStyle='#111';
+  cx.beginPath();cx.ellipse(px-10,py+33,6,3,0.2,0,Math.PI*2);cx.fill();
+  cx.beginPath();cx.ellipse(px+10,py+33,6,3,-0.2,0,Math.PI*2);cx.fill();
+  // torso
+  cx.fillStyle='#C8102E';
+  cx.beginPath();cx.moveTo(px-14,py-2);cx.bezierCurveTo(px-18,py-18,px-10,py-32,px,py-34);cx.bezierCurveTo(px+10,py-32,px+18,py-18,px+14,py-2);cx.closePath();cx.fill();
+  // number on jersey
+  cx.fillStyle='rgba(255,255,255,0.9)';cx.font='bold 11px sans-serif';cx.textAlign='center';
+  cx.fillText('23',px,py-16);
+  // right arm (shooting arm extended up)
+  cx.fillStyle='#C8102E';
+  cx.beginPath();cx.moveTo(px+10,py-22);cx.lineTo(px+28,py-52);cx.lineTo(px+22,py-54);cx.lineTo(px+6,py-24);cx.closePath();cx.fill();
+  // hand / wrist snap
+  cx.fillStyle='#C8102E';
+  cx.beginPath();cx.arc(px+24,py-54,5,0,Math.PI*2);cx.fill();
+  // left arm (balance arm)
+  cx.beginPath();cx.moveTo(px-10,py-22);cx.lineTo(px-22,py-38);cx.lineTo(px-18,py-40);cx.lineTo(px-6,py-24);cx.closePath();cx.fill();
+  // head
+  cx.fillStyle='#C8102E';
+  cx.beginPath();cx.arc(px+2,py-40,11,0,Math.PI*2);cx.fill();
+  cx.restore();
+
+  // ── FLOOR TEXT ──
+  cx.fillStyle='rgba(0,0,0,0.12)';cx.font='bold 11px sans-serif';cx.textAlign='center';
+  cx.fillText('FREE THROW LINE',W/2,H-42);
+}
+
+let animFrame=null;
+function throwBall(make){
+  const W=cvs.width,H=260;
+  balls.push({x:W/2,y:H-82,tx:W/2+(Math.random()-0.5)*35,ty:make?40:82,progress:0,make,done:false});
+}
+function animateBalls(){
+  if(animFrame)cancelAnimationFrame(animFrame);
+  function frame(){
+    drawCourt();
+    let allDone=true;
+    balls.forEach(b=>{
+      if(b.done)return;
+      b.progress+=0.038*simSpeed;
+      if(b.progress>=1){b.progress=1;b.done=true;}else allDone=false;
+      const t=b.progress,ex=b.x+(b.tx-b.x)*t,arcH=110,ey=b.y+(b.ty-b.y)*t-arcH*Math.sin(Math.PI*t),r=10*(1-t*0.35);
+      cx.beginPath();cx.arc(ex,ey,r,0,Math.PI*2);cx.fillStyle='#C8102E';cx.fill();
+      cx.strokeStyle='#333';cx.lineWidth=0.7;cx.stroke();
+      cx.beginPath();cx.arc(ex,ey,r,0.3,Math.PI+0.3);cx.strokeStyle='#1a1a1a';cx.lineWidth=0.5;cx.stroke();
+      if(b.done&&b.make){cx.fillStyle='rgba(29,66,138,0.25)';cx.beginPath();cx.arc(cvs.width/2,44,30,0,Math.PI*2);cx.fill();}
+    });
+    if(!allDone)animFrame=requestAnimationFrame(frame);else balls=[];
+  }
+  animFrame=requestAnimationFrame(frame);
+}
+function addDot(make){
+  const log=document.getElementById('ftLog');
+  const d=document.createElement('div');
+  d.className='ft-dot '+(make?'make':'miss');
+  d.textContent=make?'✓':'✗';
+  log.appendChild(d);
+  log.scrollLeft=log.scrollWidth;
+}
+function updateScore(){
+  document.getElementById('sAttempts').textContent=attempts;
+  document.getElementById('sMakes').textContent=makes;
+  document.getElementById('sMisses').textContent=misses;
+  document.getElementById('sPct').textContent=attempts>0?Math.round(makes/attempts*100)+'%':'—';
+}
+function processQueue(){
+  if(!shotQueue.length)return;
+  const make=shotQueue.shift();
+  attempts++;make?makes++:misses++;
+  updateScore();throwBall(make);animateBalls();addDot(make);
+  shotTimer=setTimeout(processQueue,820/simSpeed);
+}
+function simOneGame(){
+  const lambda=parseFloat(document.getElementById('slLambda').value);
+  const ftp=parseFloat(document.getElementById('slFTP').value)/100;
+  const clutch=document.getElementById('togClutch').classList.contains('on');
+  const fatigue=document.getElementById('togFatigue').classList.contains('on');
+  const opp=parseFloat(document.getElementById('slOpp').value);
+  let effL=lambda*opp,effP=ftp;
+  if(clutch)effP-=0.03;
+  if(fatigue){effL*=1.06;effP-=0.02;}
+  effP=Math.max(0,Math.min(1,effP));
+  const fta=Math.max(1,rPoisson(effL));
+  shotQueue=[];
+  for(let i=0;i<fta;i++)shotQueue.push(Math.random()<effP);
+  processQueue();
+}
+function simFiveGames(){
+  const lambda=parseFloat(document.getElementById('slLambda').value);
+  const ftp=parseFloat(document.getElementById('slFTP').value)/100;
+  const opp=parseFloat(document.getElementById('slOpp').value);
+  let effL=lambda*opp,effP=ftp;
+  effP=Math.max(0,Math.min(1,effP));
+  for(let g=0;g<5;g++){
+    const fta=Math.max(1,rPoisson(effL));
+    for(let i=0;i<fta;i++)shotQueue.push(Math.random()<effP);
+  }
+  if(!shotTimer)processQueue();
+}
+function resetCourt(){
+  if(shotTimer)clearTimeout(shotTimer);shotTimer=null;
+  if(animFrame)cancelAnimationFrame(animFrame);
+  balls=[];shotQueue=[];attempts=0;makes=0;misses=0;
+  updateScore();
+  document.getElementById('ftLog').innerHTML='';
+  const W=cvs.offsetWidth||700;cvs.width=W;cvs.height=260;
+  drawCourt();
+}
+
+// ── FULL SIM ──
+function runFullSim(){
+  const lambda=parseFloat(document.getElementById('slLambda').value);
+  const ftp=parseFloat(document.getElementById('slFTP').value)/100;
+  const games=parseInt(document.getElementById('slGames').value);
+  const runs=parseInt(document.getElementById('slRuns').value);
+  const clutch=document.getElementById('togClutch').classList.contains('on');
+  const fatigue=document.getElementById('togFatigue').classList.contains('on');
+  const opp=parseFloat(document.getElementById('slOpp').value);
+  let effL=lambda*opp,effP=ftp;
+  if(clutch)effP-=0.03;
+  if(fatigue){effL*=1.06;effP-=0.02;}
+  effP=Math.max(0,Math.min(1,effP));
+  document.getElementById('loadingOverlay').classList.add('show');
+  setTimeout(()=>{
+    const avgFTAs=[],avgFTMs=[],totalFTpts=[],pcts=[],maxFTAs=[];
+    for(let r=0;r<runs;r++){
+      let tA=0,tM=0,mx=0;
+      for(let g=0;g<games;g++){const a=rPoisson(effL),m=rBinom(a,effP);tA+=a;tM+=m;if(a>mx)mx=a;}
+      avgFTAs.push(tA/games);avgFTMs.push(tM/games);totalFTpts.push(tM);pcts.push(tA>0?tM/tA:0);maxFTAs.push(mx);
+    }
+    // Cards
+    document.getElementById('statFTA').textContent=mean(avgFTAs).toFixed(1);
+    document.getElementById('statFTM').textContent=mean(avgFTMs).toFixed(1);
+    document.getElementById('statSeason').textContent=Math.round(mean(totalFTpts));
+    document.getElementById('statPct').textContent=Math.round(mean(pcts)*100)+'%';
+    document.getElementById('statMax').textContent=Math.round(mean(maxFTAs));
+    // Insights
+    const p25=1-poissonCDF(effL,24);
+    const p15=poissonCDF(effL,15);
+    document.getElementById('insP25').textContent=(p25*100).toFixed(1)+'%';
+    document.getElementById('insP15').textContent=(p15*100).toFixed(1)+'%';
+    const lo=quantile(totalFTpts,0.025),hi=quantile(totalFTpts,0.975);
+    document.getElementById('insCI').textContent=`${Math.round(lo)}–${Math.round(hi)}`;
+    // Chart 1: Poisson PMF
+    const xs=Array.from({length:Math.min(45,Math.ceil(effL*2.5))},(_,i)=>i);
+    mkChart('chartPoisson',{type:'bar',data:{labels:xs,datasets:[{
+      label:'P(FTA=k)',data:xs.map(k=>(poissonPMF(effL,k)*100).toFixed(3)),
+      backgroundColor:xs.map(k=>k>=Math.round(effL*1.15)?'rgba(200,16,46,0.7)':'rgba(29,66,138,0.7)'),
+      borderWidth:0,borderRadius:3
+    }]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${parseFloat(c.raw).toFixed(2)}%`}}},scales:{x:{ticks:{maxTicksLimit:10,font:{size:9}}},y:{ticks:{callback:v=>v+'%',font:{size:9}}}}}});
+    // Chart 2: FT%
+    const{labels:pL,counts:pC}=histBins(pcts.map(v=>v*100),25);
+    mkChart('chartFTP',{type:'bar',data:{labels:pL,datasets:[{label:'Freq',data:pC,backgroundColor:'rgba(79,195,247,0.7)',borderWidth:0,borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:6,font:{size:9}}},y:{ticks:{font:{size:9}}}}}});
+    // Chart 3: Season total
+    const{labels:sL,counts:sC}=histBins(totalFTpts,30);
+    mkChart('chartSeason',{type:'bar',data:{labels:sL,datasets:[{label:'FT Pts',data:sC,backgroundColor:'rgba(29,66,138,0.7)',borderWidth:0,borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:6,font:{size:9}}},y:{ticks:{font:{size:9}}}}}});
+    // Chart 4: Sensitivity
+    const factors=[];for(let f=0.5;f<=1.52;f+=0.05)factors.push(parseFloat(f.toFixed(2)));
+    const sensV=factors.map(f=>Math.round(lambda*f*effP*games));
+    mkChart('chartSens',{type:'line',data:{labels:factors.map(f=>f.toFixed(2)+'×'),datasets:[{
+      label:'FT Pts/Season',data:sensV,borderColor:'#C8102E',backgroundColor:'rgba(200,16,46,0.1)',
+      borderWidth:2,pointRadius:3,pointBackgroundColor:'#4fc3f7',fill:true,tension:0.3
+    }]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:7,font:{size:9}}},y:{ticks:{font:{size:9}}}}}});
+    document.getElementById('loadingOverlay').classList.remove('show');
+  },50);
+}
+
+// ── INIT ──
+window.addEventListener('load',()=>{
+  const W=cvs.offsetWidth||700;cvs.width=W;cvs.height=260;
+  drawCourt();runFullSim();
+});
+window.addEventListener('resize',()=>{
+  const W=cvs.offsetWidth||700;cvs.width=W;cvs.height=260;drawCourt();
+});
+</script>
+</body>
+</html>
